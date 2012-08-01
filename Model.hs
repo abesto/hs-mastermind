@@ -45,7 +45,8 @@ module Model where
     evaluate :: Code -> Guess -> Result
     evaluate (Code cs) (Guess gs) = Result $
                                     blacks (zip [1..] cs) (zip [1..] gs) ++
-                                    whites (zip [1..] cs) (zip [1..] $ filter (not . (`elem` cs)) gs)
+                                    whites (filter (not . (`elem` zip [1..] cs)) (zip [1..] gs))
+                                           (filter (not . (`elem` zip [1..] gs)) (zip [1..] cs))
       where blacks _ [] = []
             blacks (c:cs) (g:gs)
                 | c == g    = Black : blacks cs gs
