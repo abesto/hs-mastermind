@@ -24,60 +24,58 @@ module Model where
 
 
     createGame :: Int -> Int -> Int -> Code -> Game
-    createGame rowCount pegCount colorCount code = Game
+    createGame rows pegs colors code' = Game
              {
-               code = code
-             , rowCount = rowCount
-             , pegCount = pegCount
-             , colorCount = colorCount
-             , guesses = [Guess $ take pegCount $ repeat Empty]
+               code = code'
+             , rowCount = rows
+             , pegCount = pegs
+             , colorCount = colors
+             , guesses = [Guess $ replicate pegs Empty]
              , results = []
              , outcome = Playing
              }
 
 
     generateGame :: RandomGen g => Int -> Int -> Int -> g -> Game
-    generateGame rowCount pegCount colorCount gen =
-        createGame rowCount pegCount colorCount $ Code $ take pegCount $
-                   map toEnum $ randomRs (1, colorCount) gen
+    generateGame rows pegs colors gen =
+        createGame rows pegs colors $ Code $ take pegs $
+                   map toEnum $ randomRs (1, colors) gen
 
 
     evaluate :: Code -> Guess -> Result
-    evaluate (Code cs) (Guess gs) = Result $
-                                    blacks (zip [1..] cs) (zip [1..] gs) ++
-                                    whites (filter (not . (`elem` zip [1..] cs)) (zip [1..] gs))
-                                           (filter (not . (`elem` zip [1..] gs)) (zip [1..] cs))
-      where blacks _ [] = []
-            blacks (c:cs) (g:gs)
-                | c == g    = Black : blacks cs gs
-                | otherwise = blacks cs gs
-            whites _ [] = []
-            whites cs (g@(gi, gp):gs) = f $ findIndex (\(i, p) -> i /= gi && p == gp) cs
-                    where f (Just i) = White : whites (dropNth i cs) gs
-                          f _        = whites cs gs
-                          dropNth n xs = take n xs ++ drop (n+1) xs
+    evaluate (Code c) (Guess g) = Result $
+                                         blacks (indexedCode, indexedGuess) ++
+                                         whites (indexedCode \\ indexedGuess) (indexedGuess \\ indexedCode)
+      where
+        indexedCode = zip [1..] c
+        indexedGuess = zip [1..] g
+        blacks = flip replicate Black . length . uncurry intersect
+        whites [] _ = []
+        whites _ [] = []
+        whites cs ((gi, gp):gs) = case findIndex (\(i, p) -> i /= gi && p == gp) cs of
+                                    (Just i) -> White : whites (dropNth i cs) gs
+                                    _        -> whites cs gs
+        dropNth n xs = take n xs ++ drop (n+1) xs
 
 
     modifyGuess :: Game -> Int -> CodePeg -> Game
     modifyGuess game i p =
         let (Guess g) = last $ guesses game in
-        game { guesses = take (length (guesses game) - 1) (guesses game) ++ [Guess ((take i g) ++ [p] ++ (drop (i+1) g))] }
+        game { guesses = init (guesses game) ++ [Guess $ take i g ++ [p] ++ drop (i+1) g] }
+
 
     guess :: Game -> Game
     guess game
-        | outcome game /= Playing
-            = game
-        | Empty `elem` (guessPegs $ last $ guesses game)
-            = game
+        | outcome game /= Playing = game
+        | Empty `elem` guessPegs (last $ guesses game) = game
         | otherwise
             = game {
-                guesses = guesses game ++ [Guess $ take (pegCount game) $ repeat Empty]
+                guesses = guesses game ++ [Guess $ replicate (pegCount game) Empty]
               , results = results game ++ [result]
               , outcome = newOutcome
               } where
         result = evaluate (code game) (last $ guesses game)
         newOutcome
-            | length (keyPegs result) == pegCount game
-              && all (\x -> x == Black) (keyPegs result)    = Won
-            | rowCount game == (length (guesses game) + 1)  = Lost
-            | otherwise                                     = Playing
+            | keyPegs result == replicate (pegCount game) Black =  Won
+            | rowCount game < length (guesses game)             =  Lost
+            | otherwise                                         =  Playing
