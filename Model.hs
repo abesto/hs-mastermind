@@ -6,6 +6,7 @@ module Model where
                  deriving (Eq, Show, Enum)
     data KeyPeg = White | Black
                 deriving (Eq, Show)
+    data ModelPosition = ModelPosition Int Int
 
     newtype Code = Code {codePegs :: [CodePeg]} deriving Show
     newtype Guess = Guess {guessPegs :: [CodePeg]} deriving Show
@@ -59,10 +60,22 @@ module Model where
 
 
     modifyGuess :: Game -> Int -> CodePeg -> Game
-    modifyGuess game i p =
-        let (Guess g) = last $ guesses game in
-        game { guesses = init (guesses game) ++ [Guess $ take i g ++ [p] ++ drop (i+1) g] }
+    modifyGuess game i p
+        | outcome game == Playing =
+            let (Guess g) = last $ guesses game in
+            game { guesses = init (guesses game) ++ [Guess $ take i g ++ [p] ++ drop (i+1) g] }
+        | otherwise               = game
 
+
+    pegAt :: Game -> ModelPosition -> CodePeg
+    pegAt game (ModelPosition row column) = guessPegs (guesses game !! row) !! column
+
+
+    currentGuess :: Game -> Guess
+    currentGuess = last . guesses
+
+    lastResult :: Game -> Result
+    lastResult = last . results
 
     guess :: Game -> Game
     guess game
@@ -77,5 +90,5 @@ module Model where
         result = evaluate (code game) (last $ guesses game)
         newOutcome
             | keyPegs result == replicate (pegCount game) Black =  Won
-            | rowCount game < length (guesses game)             =  Lost
+            | rowCount game <= length (guesses game)            =  Lost
             | otherwise                                         =  Playing

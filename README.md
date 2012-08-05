@@ -7,6 +7,4 @@ run with
 
     cabal build && ./dist/build/main/main
 
-Currently in prototype stage. Shows the solution and debug information.
-
-Move around with the arrow keys; change guess peg with number keys. Switch to a different game by changing the random seed in Main.hs
+The game is in a playable state. You'll get a new random game each time you run the application. Move around with the arrow keys; change guess peg with number keys. Guess by pressing 'g', quit with 'q'.
