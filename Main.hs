@@ -4,15 +4,16 @@ import UI.HSCurses.Curses
 import UI.HSCurses.CursesHelper
 import Model
 import System.Random
-import Control.Monad (when, liftM)
+import Control.Monad (when, liftM, (>=>))
 
 data BoardPosition = BoardPosition { boardY :: Int, boardX :: Int }
 data WBoardPosition = WBoardPosition { wBoardY :: Int, wBoardX :: Int }
 
 data UI = UI {
-      uiGame   :: Game
-    , uiWBoard :: Window
-    , uiStyles :: [CursesStyle]
+      uiGame      :: Game
+    , uiWBoard    :: Window
+    , uiWControls :: Window
+    , uiStyles    :: [CursesStyle]
     }
 
 ---- Conversion between coordinate systems ----
@@ -53,22 +54,21 @@ drawBox ui (y0, x0) (y1, x1) = do
   mapM_ (putCh '-' ui) [WBoardPosition y x | y <- [y0, y1], x <- [x0+1 .. x1]]
   mapM_ (putCh '+' ui) [WBoardPosition y x | y <- [y0, y1], x <- [x0, x1]]
 
-drawCodePeg :: UI -> CodePeg -> IO ()
-drawCodePeg _ Empty = return ()
-drawCodePeg UI {uiStyles=styles, uiWBoard=wBoard} p =
-    wWithStyle wBoard (styles !! fromEnum p) (wAddStr wBoard $ show $ fromEnum p)
+drawCodePeg :: UI -> Window -> CodePeg -> IO ()
+drawCodePeg _ _ Empty = return ()
+drawCodePeg UI {uiStyles=styles} window p =
+    wWithStyle window (styles !! fromEnum p) (wAddStr window $ show $ fromEnum p)
 
 showCode :: UI -> IO ()
 showCode ui@(UI {uiGame=game}) = mapM_ f $ zip [0..] (codePegs $ code game)
     where f (n, p) = do
             moveBoard ui $ BoardPosition 0 n
-            drawCodePeg ui p
+            drawCodePeg ui (uiWBoard ui) p
 
 drawBoard :: UI -> IO ()
 drawBoard ui@(UI {uiGame=game}) = let
     cellPositions = map boardToWBoard [BoardPosition y x | y <- [0 .. rowCount game], x <- [0 .. pegCount game - 1]]
     in do
-  erase
   mapM_ (uncurry $ drawBox ui) [((y-1, x-1), (y+1, x+1)) | (WBoardPosition y x) <- cellPositions]
   mapM_ (putCh '?' ui) [boardToWBoard $ BoardPosition 0 x | x <- [0 .. pegCount game - 1]]
 
@@ -145,7 +145,7 @@ handleInput ui = let sizeX = pegCount (uiGame ui) in do
         let
             f [(i, "")] =
                   let ui'@(UI {uiGame=game'}) = ui {uiGame = modifyGuess (uiGame ui) x (toEnum i)} in do
-                    drawCodePeg ui' $ toEnum $ fromEnum $ pegAt game' $ boardToModel ui' boardPos
+                    drawCodePeg ui' (uiWBoard ui') $ toEnum $ fromEnum $ pegAt game' $ boardToModel ui' boardPos
                     moveBoard ui boardPos
                     handleInput ui'
             f _ = handleInput ui
@@ -155,28 +155,46 @@ handleInput ui = let sizeX = pegCount (uiGame ui) in do
 
 -- Startup
 main :: IO ()
-main = let rows = 10
+main = getStdGen >>= \gen -> let
+           rows = 10
            pegs = 4
            colors = 6
+           game = generateGame rows pegs colors gen
+           wBoardLines = 3 + wBoardY (boardToWBoard $ BoardPosition rows 0)
+           wBoardColumns = 3 + length "whites" + wBoardX (whitesPosition game 0)
+           wControlsColumns = 4 + max (length " Pegs: " + 2 * colorCount game - 2)
+                                      (length "+ Move: arrows +")
        in do
   start
   keypad stdScr True
   echo False
+  refresh
 
-  game <- generateGame rows pegs colors `liftM` getStdGen
   styles <- convertStyles [Style c BlackB | c <- [BlackF, RedF, GreenF, BlueF, YellowF, MagentaF, CyanF]]
-  wBoard <- newWin (3 + wBoardY (boardToWBoard $ BoardPosition rows 0))
-                   (3 + length "whites" + wBoardX (whitesPosition game 0)) 0 0
-  wBorder wBoard defaultBorder
+  wBoard <- newWin wBoardLines wBoardColumns 0 0
+  wControls <- newWin 6 wControlsColumns 2 (wBoardColumns + 5)
+
 
   let ui = UI {
-             uiGame = game
-           , uiWBoard = wBoard
-           , uiStyles = styles
+             uiGame      = game
+           , uiWControls = wControls
+           , uiWBoard    = wBoard
+           , uiStyles    = styles
            } in do
 
 
+      wBorder wBoard defaultBorder
+      mvWAddStr wBoard 0 ((wBoardColumns - length " Board ") `div` 2) " Board "
       drawBoard ui
+
+      wBorder wControls defaultBorder
+      mvWAddStr wControls 0 ((wControlsColumns - length " Controls ") `div` 2) " Controls "
+      mvWAddStr wControls 1 2 "Pegs: "
+      mapM_ ((drawCodePeg ui wControls . toEnum) >=> (\_ -> waddch wControls $ toEnum $ fromEnum ' ')) [1 .. colorCount game]
+      mvWAddStr wControls 2 2 "Move: arrows"
+      mvWAddStr wControls 3 2 "Guess: g"
+      mvWAddStr wControls 4 2 "Quit: q"
+      wRefresh wControls
 
       let (WBoardPosition y x) = blacksPosition game 0 in
         mvWAddStr (uiWBoard ui) y x "Blacks"
@@ -185,7 +203,6 @@ main = let rows = 10
         mvWAddStr (uiWBoard ui) y x "Whites"
 
       moveBoard ui $ modelToBoard ui (ModelPosition 0 0)
-      refresh
       handleInput ui
 
       echo True
