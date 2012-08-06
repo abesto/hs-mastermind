@@ -11,8 +11,8 @@ data WBoardPosition = WBoardPosition { wBoardY :: Int, wBoardX :: Int }
 
 data UI = UI {
       uiGame      :: Game
+    , uiWOutcome  :: Window
     , uiWBoard    :: Window
-    , uiWControls :: Window
     , uiStyles    :: [CursesStyle]
     }
 
@@ -115,7 +115,7 @@ moveModel ui = moveWBoard ui . modelToScreen ui
 ---- Handle user input ----
 handleInput :: UI -> IO ()
 handleInput ui = let sizeX = pegCount (uiGame ui) in do
-  --debug game
+  --debug $ uiGame ui
   wRefresh (uiWBoard ui)
   c <- getCh
   boardPos@(BoardPosition y x) <- getYXBoard ui
@@ -129,16 +129,17 @@ handleInput ui = let sizeX = pegCount (uiGame ui) in do
     KeyChar 'g' ->
         let ui'@(UI {uiGame=game'}) = ui {uiGame = guess (uiGame ui)} in
         do
-          when (outcome game' /= Playing) $ do
-              showCode ui'
-              moveBoard ui boardPos
-          when (all (== Empty) (guessPegs $ currentGuess game')) $ do
+          when (length (results game') == length (guesses $ uiGame ui)) $ do
               moveWBoard ui' $ blacksPosition game' y
               wAddStr (uiWBoard ui) $ show $ length $ filter (== Black) $ keyPegs $ lastResult game'
               moveWBoard ui' $ whitesPosition game' y
               wAddStr (uiWBoard ui) $ show $ length $ filter (== White) $ keyPegs $ lastResult game'
               moveModel ui' $ ModelPosition (length (guesses game') - 1) x
-          handleInput ui'
+          if outcome game' == Playing
+             then handleInput ui'
+             else do
+              moveBoard ui' boardPos
+              gameOver ui'
     KeyChar 'q' ->
         return ()
     KeyChar k ->
@@ -152,6 +153,17 @@ handleInput ui = let sizeX = pegCount (uiGame ui) in do
         in f $ reads [k]
     _ -> handleInput ui
 
+
+gameOver :: UI -> IO ()
+gameOver ui@(UI {uiWOutcome = w, uiWBoard = wb, uiGame = g}) = do
+  cursSet CursorInvisible
+  showCode ui
+  mvWAddStr w 0 0 $ if outcome g == Won then "Congratulations!" else "Oops :("
+  mvWAddStr w 1 0 "Press any key to exit"
+  wRefresh w
+  wRefresh wb
+  _ <- getCh
+  return ()
 
 -- Startup
 main :: IO ()
@@ -173,16 +185,15 @@ main = getStdGen >>= \gen -> let
   styles <- convertStyles [Style c BlackB | c <- [BlackF, RedF, GreenF, BlueF, YellowF, MagentaF, CyanF]]
   wBoard <- newWin wBoardLines wBoardColumns 0 0
   wControls <- newWin 6 wControlsColumns 2 (wBoardColumns + 5)
+  wOutcome <- newWin 2 (length "press any key to exit  ") 9 (wBoardColumns + 5)
 
 
   let ui = UI {
              uiGame      = game
-           , uiWControls = wControls
+           , uiWOutcome  = wOutcome
            , uiWBoard    = wBoard
            , uiStyles    = styles
            } in do
-
-
       wBorder wBoard defaultBorder
       mvWAddStr wBoard 0 ((wBoardColumns - length " Board ") `div` 2) " Board "
       drawBoard ui
