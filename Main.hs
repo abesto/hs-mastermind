@@ -6,8 +6,8 @@ import Model
 import System.Random
 import Control.Monad (when, liftM)
 
-data BoardPosition = BoardPosition Int Int
-data WBoardPosition = WBoardPosition Int Int
+data BoardPosition = BoardPosition { boardY :: Int, boardX :: Int }
+data WBoardPosition = WBoardPosition { wBoardY :: Int, wBoardX :: Int }
 
 data UI = UI {
       uiGame   :: Game
@@ -22,13 +22,13 @@ data UI = UI {
 -- WBoardPosition: the raw character position on the board window
 wBoardToBoard :: WBoardPosition -> BoardPosition
 wBoardToBoard (WBoardPosition y x) = BoardPosition
-                                       ((y + 1) `div` 2 - 1)
-                                       ((x + 1) `div` 2 - 1)
+                                       (y `div` 2 - 1)
+                                       (x `div` 2 - 1)
 
 boardToWBoard :: BoardPosition -> WBoardPosition
 boardToWBoard (BoardPosition y x) = WBoardPosition
-                                       (y * 2 + 1)
-                                       (x * 2 + 1)
+                                       (y * 2 + 2)
+                                       (x * 2 + 3)
 
 boardToModel :: UI -> BoardPosition -> ModelPosition
 boardToModel UI {uiGame=game} (BoardPosition y x) = ModelPosition (rowCount game - y) x
@@ -36,8 +36,8 @@ boardToModel UI {uiGame=game} (BoardPosition y x) = ModelPosition (rowCount game
 modelToBoard :: UI -> ModelPosition -> BoardPosition
 modelToBoard UI {uiGame=game} (ModelPosition y x) = BoardPosition (rowCount game - y) x
 
-screenToModel :: UI -> WBoardPosition -> ModelPosition
-screenToModel ui = boardToModel ui . wBoardToBoard
+wBoardToModel :: UI -> WBoardPosition -> ModelPosition
+wBoardToModel ui = boardToModel ui . wBoardToBoard
 
 modelToScreen :: UI -> ModelPosition -> WBoardPosition
 modelToScreen ui = boardToWBoard . modelToBoard ui
@@ -65,12 +65,11 @@ showCode ui@(UI {uiGame=game}) = mapM_ f $ zip [0..] (codePegs $ code game)
             drawCodePeg ui p
 
 drawBoard :: UI -> IO ()
-drawBoard ui@(UI {uiGame=game}) = do
+drawBoard ui@(UI {uiGame=game}) = let
+    cellPositions = map boardToWBoard [BoardPosition y x | y <- [0 .. rowCount game], x <- [0 .. pegCount game - 1]]
+    in do
   erase
-  mapM_ (uncurry $ drawBox ui) [
-                         ((2*row, 2*column), (2*(row+1), 2*(column+1))) |
-                         row <- [0 .. rowCount game], column <- [0 .. pegCount game - 1]
-                        ]
+  mapM_ (uncurry $ drawBox ui) [((y-1, x-1), (y+1, x+1)) | (WBoardPosition y x) <- cellPositions]
   mapM_ (putCh '?' ui) [boardToWBoard $ BoardPosition 0 x | x <- [0 .. pegCount game - 1]]
 
 -- Position where the number of black key pegs begins
@@ -95,7 +94,7 @@ debug game = do
 
 ---- Navigation ----
 getYXwBoard :: UI -> IO WBoardPosition
-getYXwBoard ui = uncurry WBoardPosition `liftM` (getYX $ uiWBoard ui)
+getYXwBoard ui = uncurry WBoardPosition `liftM` getYX (uiWBoard ui)
 
 moveWBoard :: UI -> WBoardPosition -> IO ()
 moveWBoard ui (WBoardPosition y x) = wMove (uiWBoard ui) y x
@@ -107,7 +106,7 @@ moveBoard :: UI -> BoardPosition -> IO ()
 moveBoard ui = moveWBoard ui . boardToWBoard
 
 getYXModel :: UI -> IO ModelPosition
-getYXModel ui = screenToModel ui `liftM` getYXwBoard ui
+getYXModel ui = wBoardToModel ui `liftM` getYXwBoard ui
 
 moveModel :: UI -> ModelPosition -> IO ()
 moveModel ui = moveWBoard ui . modelToScreen ui
@@ -159,14 +158,16 @@ main :: IO ()
 main = let rows = 10
            pegs = 4
            colors = 6
-           (WBoardPosition boardLines boardColumns) = boardToWBoard $ BoardPosition rows (pegs - 1) in do
+       in do
   start
   keypad stdScr True
   echo False
 
   game <- generateGame rows pegs colors `liftM` getStdGen
   styles <- convertStyles [Style c BlackB | c <- [BlackF, RedF, GreenF, BlueF, YellowF, MagentaF, CyanF]]
-  wBoard <- newWin (boardLines + 10) (boardColumns + 20) 0 0
+  wBoard <- newWin (3 + wBoardY (boardToWBoard $ BoardPosition rows 0))
+                   (3 + length "whites" + wBoardX (whitesPosition game 0)) 0 0
+  wBorder wBoard defaultBorder
 
   let ui = UI {
              uiGame = game
