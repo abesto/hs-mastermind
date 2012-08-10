@@ -16,17 +16,17 @@ A server exposing the game generation and guess evaluation logic is also include
 ````
 nc -U mastermind.sock
 
-{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[0,0,0,0]],"results":[],"outcome":0}
+{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[],"results":[],"outcome":0}
 [1,1,2,2]
-{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[1,1,2,2],[0,0,0,0]],"results":[[1]],"outcome":0}
+{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[1,1,2,2]],"results":[[1]],"outcome":0}
 [3,3,4,4]
-{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[1,1,2,2],[3,3,4,4],[0,0,0,0]],"results":[[1],[1,0]],"outcome":0}
+{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[1,1,2,2],[3,3,4,4]],"results":[[1],[1,0]],"outcome":0}
 invalid json is ignored
-{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[1,1,2,2],[3,3,4,4],[0,0,0,0]],"results":[[1],[1,0]],"outcome":0}
+{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[1,1,2,2],[3,3,4,4]],"results":[[1],[1,0]],"outcome":0}
 ["as", 3, "is", "anything else the server doesn't expect"]
-{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[1,1,2,2],[3,3,4,4],[0,0,0,0]],"results":[[1],[1,0]],"outcome":0}
+{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[1,1,2,2],[3,3,4,4]],"results":[[1],[1,0]],"outcome":0}
 But errors are logged to stdout, see below...
-{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[1,1,2,2],[3,3,4,4],[0,0,0,0]],"results":[[1],[1,0]],"outcome":0}
+{"rowCount":10,"pegCount":4,"colorCount":6,"guesses":[[1,1,2,2],[3,3,4,4]],"results":[[1],[1,0]],"outcome":0}
 ^D
 ````
 

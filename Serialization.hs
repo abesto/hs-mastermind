@@ -14,10 +14,11 @@ instance JSON Game where
                  [ ("rowCount", showJSON $ rowCount g)
                  , ("pegCount", showJSON $ pegCount g)
                  , ("colorCount", showJSON $ colorCount g)
-                 , ("guesses", showJSON $ guesses g)
+                 , ("guesses", showJSON $ init $ guesses g)
                  , ("results", showJSON $ results g)
                  , ("outcome", showJSON $ outcome g)
                  ]
+    -- readJSON is not used; it's also not symmetric to showJSON
     readJSON (JSObject obj) = let
                        get s = mLookup s (fromJSObject obj) >>= readJSON
                   in Game
