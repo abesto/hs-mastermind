@@ -49,9 +49,14 @@ Cabal-version:       >=1.2
 Executable main
   -- .hs or .lhs file containing the Main module.
     Main-is: Main.hs
+    Hs-Source-Dirs: standalone, .
+
+Executable server
+    Main-is: Main.hs
+    Hs-Source-Dirs: server, .
 
   -- Packages needed in order to build this package.
-    Build-depends: base, hscurses, random
+    Build-depends: base, hscurses, random, json, network
   -- Modules not exported by this package.
   -- Other-modules:
 

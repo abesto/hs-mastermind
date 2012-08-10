@@ -5,6 +5,8 @@ import UI.HSCurses.CursesHelper
 import Model
 import System.Random
 import Control.Monad (when, liftM, (>=>))
+import Serialization
+import Text.JSON
 
 data BoardPosition = BoardPosition { boardY :: Int, boardX :: Int }
 data WBoardPosition = WBoardPosition { wBoardY :: Int, wBoardX :: Int }
@@ -84,11 +86,11 @@ whitesPosition game row =
     let f (WBoardPosition r c) = WBoardPosition r (c+10) in
     f $ blacksPosition game row
 
-debug :: Show a => a -> IO ()
+debug :: Game -> IO ()
 debug game = do
   (y, x) <- getYX stdScr
   move 40 0
-  wAddStr stdScr $ show game
+  wAddStr stdScr $ encode game
   move y x
 
 
@@ -115,7 +117,7 @@ moveModel ui = moveWBoard ui . modelToScreen ui
 ---- Handle user input ----
 handleInput :: UI -> IO ()
 handleInput ui = let sizeX = pegCount (uiGame ui) in do
-  --debug $ uiGame ui
+  debug $ uiGame ui
   wRefresh (uiWBoard ui)
   c <- getCh
   boardPos@(BoardPosition y x) <- getYXBoard ui
